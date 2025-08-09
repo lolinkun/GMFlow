@@ -14,7 +14,7 @@ from mmgen.models.builder import MODULES, build_module
 from mmgen.models.diffusions.utils import _get_noise_batch
 
 from . import schedulers
-from lib.ops.gmflow_ops.gmflow_ops import gm_to_mean, gm_to_sample
+from lib.ops.gmflow_ops.gmflow_ops import gm_to_mean, gm_to_sample, gm_to_onehot
 
 
 @torch.jit.script
@@ -134,7 +134,7 @@ class GaussianFlow(nn.Module):
         cfg.update(test_cfg_override)
 
         output_mode = cfg.get('output_mode', 'mean')
-        assert output_mode in ['mean', 'sample']
+        assert output_mode in ['mean', 'sample', 'onehot']
 
         sampler = cfg.get('sampler', 'FlowMatchEulerDiscrete')
         sampler_class = getattr(diffusers.schedulers, sampler + 'Scheduler', None)
@@ -179,6 +179,8 @@ class GaussianFlow(nn.Module):
 
                 if output_mode == 'mean':
                     denoising_output = gm_to_mean(denoising_output)
+                elif output_mode == 'onehot':
+                    denoising_output = gm_to_onehot(denoising_output)
                 else:
                     denoising_output = gm_to_sample(denoising_output).squeeze(-4)
 
