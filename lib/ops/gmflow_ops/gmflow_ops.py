@@ -561,6 +561,39 @@ def gm_to_mean(gm, gm_power=1):
     return gm_to_mean_jit(gm_means, gm_logweights, gm_power)
 
 
+def gm_to_onehot(gm, gm_power=1):
+    """Return the mean of the most probable Gaussian component.
+
+    Args:
+        gm (dict):
+            means (torch.Tensor): (bs, *, num_gaussians, out_channels, h, w)
+            logstds (torch.Tensor): (bs, *, 1, 1, 1, 1)
+            logweights (torch.Tensor): (bs, *, num_gaussians, 1, h, w)
+            or
+            means (torch.Tensor): (bs, *, num_gaussians, h, w, out_channels)
+            covs (torch.Tensor): (bs, *, 1 or num_gaussians, h, w, out_channels, out_channels)
+            logweights (torch.Tensor): (bs, *, num_gaussians, h, w)
+        gm_power (float): optional weight sharpening factor.
+
+    Returns:
+        torch.Tensor: (bs, *, out_channels, h, w)
+    """
+    gm_means = gm['means']
+    gm_logweights = gm['logweights']
+    if 'covs' in gm:
+        batch_shapes = gm_means.shape[:-4]
+        num_gaussians, h, w, out_channels = gm_means.shape[-4:]
+        batch_numel = batch_shapes.numel()
+        gm_means = gm_means.reshape(
+            batch_numel, num_gaussians, h, w, out_channels
+        ).permute(0, 1, 4, 2, 3).reshape(*batch_shapes, num_gaussians, out_channels, h, w)
+        gm_logweights = gm_logweights.unsqueeze(-3)
+    scores = gm_logweights * gm_power
+    inds = scores.argmax(dim=-4, keepdim=True)
+    mean = gm_means.gather(dim=-4, index=inds.expand_as(gm_means)).squeeze(-4)
+    return mean
+
+
 def gm_to_sample(
         gm,
         gm_power=1,

@@ -14,7 +14,7 @@ from mmgen.models.diffusions.utils import _get_noise_batch
 
 from . import GaussianFlow, schedulers
 from lib.ops.gmflow_ops.gmflow_ops import (
-    gm_to_sample, gm_to_mean, gaussian_samples_to_gm_samples, gm_samples_to_gaussian_samples,
+    gm_to_sample, gm_to_mean, gm_to_onehot, gaussian_samples_to_gm_samples, gm_samples_to_gaussian_samples,
     iso_gaussian_mul_iso_gaussian, gm_mul_iso_gaussian, gm_to_iso_gaussian, gm_spectral_logprobs)
 
 
@@ -240,11 +240,13 @@ class GMFlowMixin:
         return samples, spectral_samples
 
     def gm_to_model_output(self, gm, output_mode, power_spectrum=None, generator=None):
-        assert output_mode in ['mean', 'sample']
+        assert output_mode in ['mean', 'sample', 'onehot']
         if output_mode == 'mean':
             output = gm_to_mean(gm)
-        else:  # sample
+        elif output_mode == 'sample':
             output = self.gm_sample(gm, power_spectrum, generator=generator)[0].squeeze(-4)
+        else:
+            output = gm_to_onehot(gm)
         return output
 
     def gm_2nd_order(
@@ -428,7 +430,7 @@ class GMFlow(GaussianFlow, GMFlowMixin):
         cfg.update(test_cfg_override)
 
         output_mode = cfg.get('output_mode', 'mean')
-        assert output_mode in ['mean', 'sample']
+        assert output_mode in ['mean', 'sample', 'onehot']
 
         sampler = cfg['sampler']
         sampler_class = getattr(diffusers.schedulers, sampler + 'Scheduler', None)
